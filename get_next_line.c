@@ -10,99 +10,105 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "get_next_line.h"
-#include <stdlib.h>
+#include "libft.h"
 
-static char	*ft_join(char *s, char *s2)
+static char	*ft_join(char **dst, char *src)
 {
-        size_t	i;
-        size_t	j;
-        char	*str;
-        size_t	len;
+	char	*str;
+	size_t	len;
 
-        i = 0;
-        j = 0;
-        len = ft_strlen(s) + ft_strlen(s2);
-        str = (char*)malloc(sizeof(char) * (len + 1));
-        if (!str)
-                return (0);
-        while (s[j] != '\0')
-                str[i++] = s[j++];
-        j = 0;
-        while (s2[j] != '\0')
-                str[i++] = s2[j++];
-        str[i] = '\0';
-        free(s);
-        free(s2);
-        return (str);
+	len = ft_strlen(*dst) + ft_strlen(src);
+	if (!(str = (char*)malloc(sizeof(char) * (len + 1))))
+		return (0);
+	ft_strcpy(str, *dst);
+	ft_strcat(str, src);
+	free(*dst);
+	*dst = str;
+	return (*dst);
 }
 
-static int    write_to_stat_or_return(char *stat, char *buf, int i, int num)
+static int	ft_pos(char *s, char c, int *i)
 {
-        if (num < 0)
-        {
-                free(buf);
-                return (-1);
-        }
-        i++;
-        stat[0] = '\0';
-        ft_strcpy(stat, &buf[i]);
-        free(buf);
-        return (1);
+	while (s[*i] != 0)
+	{
+		if (s[*i] == c)
+			return (*i);
+		(*i)++;
+	}
+	return (-1);
 }
 
-static int    ft_read(char **line, char *stat, int fd)
+static int	ft_read(const int fd, char *buf, char *trash, char **line)
 {
-        int 	i;
-        int		j;
-        int     num;
-        char    *buf;
-        char	*tmp;
+	int		cnt;
+	int		p;
+	int		len;
 
-        i = 0;
-        buf = ft_strnew(BUFF_SIZE);
-        while ((num = read(fd, buf, BUFF_SIZE)))
-        {
-                i = 0;
-                j = 0;
-                if (num == -1)
-                        return (write_to_stat_or_return(stat, buf, i, num));
-                tmp = ft_strnew(BUFF_SIZE);
-                while (buf[i] != '\n' && buf[i] != '\0' && i < num)
-                        tmp[j++] = buf[i++];
-                *line = ft_join(*line, tmp);
-                if (buf[i] == '\n')
-                        return (write_to_stat_or_return(stat, buf, i, num));
-        }
-        free(buf);
-        if (i > 0 && i <= BUFF_SIZE)
-                return (1);
-        return (0);
+	while ((cnt = read(fd, buf, BUFF_SIZE)))
+	{
+		len = 0;
+		p = ft_pos(buf, '\n', &len);
+		buf[cnt] = 0;
+		if (p >= 0)
+		{
+			if (cnt > p + 1)
+				ft_strcpy(trash, buf + p + 1);
+			buf[p] = 0;
+			ft_join(line, buf);
+			return (1);
+		}
+		ft_join(line, buf);
+		if (cnt < BUFF_SIZE)
+			return (1);
+	}
+	free(buf);
+	return (0);
 }
 
-int	get_next_line(const int fd, char **line)
+static int	get_data_from_trash(char *trash, int *len, char **line)
 {
-        int		i;
-        static char	stat[BUFF_SIZE];
-        char		*tmp;
+	int	p;
 
-        i = 0;
-        if (!line || fd < 0 || !(*line = ft_strnew(BUFF_SIZE)))
-                return (-1);
-        if (stat[0])
-        {
-                while (stat[i] != '\n' && stat[i] != '\0')
-                        i++;
-                tmp = ft_strnew(i);
-                ft_strncat(tmp, stat, i);
-                *line = ft_join(*line, tmp);
-                if (stat[i] == '\n')
-                {
-                        ft_strcpy(stat, &stat[++i]);
-                        return (1);
-                }
-                stat[0] = '\0';
-        }
-        i = ft_read(line, stat, fd);
-        return (i);
+	if (trash[0])
+	{
+		p = ft_pos(trash, '\n', len);
+		if (p >= 0)
+		{
+			*line = ft_strnew(p);
+			ft_strncpy(*line, trash, p);
+			ft_strcpy(trash, trash + p + 1);
+			return (1);
+		}
+		*line = ft_strnew(*len);
+		ft_strcpy(*line, trash);
+		trash[0] = 0;
+	}
+	return (0);
+}
+
+int			get_next_line(const int fd, char **line)
+{
+	int			len;
+	static char trash[BUFF_SIZE];
+	char		*buf;
+
+	len = 0;
+	if (fd < 0 || line == NULL || read(fd, *line, 0) < 0)
+		return (-1);
+	if (get_data_from_trash(trash, &len, line))
+		return (1);
+	else
+		*line = ft_strnew(0);
+	buf = ft_strnew(BUFF_SIZE);
+	if (ft_read(fd, buf, trash, line) == 1)
+	{
+		free(buf);
+		return (1);
+	}
+	if (*line[0])
+	{
+		free(buf);
+		return (1);
+	}
+	return (0);
 }
