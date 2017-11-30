@@ -61,17 +61,18 @@ static int	ft_read(const int fd, char *buf, char *trash, char **line)
 		if (cnt < BUFF_SIZE)
 			return (1);
 	}
-	free(buf);
 	return (0);
 }
 
-static int	get_data_from_trash(char *trash, int *len, char **line)
+static int	get_data_from_trash(char *trash, char **line)
 {
 	int	p;
+	int	len;
 
 	if (trash[0])
 	{
-		p = ft_pos(trash, '\n', len);
+		len = 0;
+		p = ft_pos(trash, '\n', &len);
 		if (p >= 0)
 		{
 			*line = ft_strnew(p);
@@ -79,26 +80,24 @@ static int	get_data_from_trash(char *trash, int *len, char **line)
 			ft_strcpy(trash, trash + p + 1);
 			return (1);
 		}
-		*line = ft_strnew(*len);
+		*line = ft_strnew(len);
 		ft_strcpy(*line, trash);
 		trash[0] = 0;
 	}
+	else
+		*line = ft_strnew(0);
 	return (0);
 }
 
 int			get_next_line(const int fd, char **line)
 {
-	int			len;
 	static char trash[BUFF_SIZE];
 	char		*buf;
 
-	len = 0;
 	if (fd < 0 || line == NULL || read(fd, *line, 0) < 0)
 		return (-1);
-	if (get_data_from_trash(trash, &len, line))
+	if (get_data_from_trash(trash, line))
 		return (1);
-	else
-		*line = ft_strnew(0);
 	buf = ft_strnew(BUFF_SIZE);
 	if (ft_read(fd, buf, trash, line) == 1)
 	{
@@ -110,5 +109,6 @@ int			get_next_line(const int fd, char **line)
 		free(buf);
 		return (1);
 	}
+	free(buf);
 	return (0);
 }
